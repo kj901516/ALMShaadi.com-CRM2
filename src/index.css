@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  /* Theme primary color (overridden by JS) */
+  --theme-primary: #7a1f2b;
+  --theme-primary-dark: #5e1822;
+  --theme-primary-darker: #4a141c;
+  --theme-primary-light: #9d2f44;
+  --theme-primary-50: #fbf3f4;
+  --theme-primary-100: #f7e6e8;
+}
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background-color: #fffdf8;
+  color: #2c0a10;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Urdu helper */
+.urdu {
+  font-family: 'Noto Nastaliq Urdu', serif;
+  line-height: 2;
+  direction: rtl;
+}
+
+/* Thin, elegant scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #faf0d6; }
+::-webkit-scrollbar-thumb { background: #cc6b7a; border-radius: 999px; border: 2px solid #faf0d6; }
+::-webkit-scrollbar-thumb:hover { background: #b9465a; }
+
+/* Portrait photo: never crop */
+.portrait-photo {
+  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  background: #f7e6e8;
+}
+
+/* Hide number input spinners */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type='number'] { -moz-appearance: textfield; }
+
+/* Print: only the printable area */
+@media print {
+  body * { visibility: hidden; }
+  #print-area, #print-area * { visibility: visible; }
+  #print-area { position: absolute; left: 0; top: 0; width: 100%; }
+}
+
+/* Gold gradient text */
+.text-gold-gradient {
+  background: linear-gradient(135deg, #e3bd3e 0%, #d4a521 50%, #936317 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Subtle pattern background */
+.bg-pattern {
+  background-color: #fffdf8;
+  background-image: radial-gradient(circle at 1px 1px, rgba(122, 31, 43, 0.06) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+
+/* Theme-aware utility classes (driven by CSS variables) */
+.theme-bg { background-color: var(--theme-primary); }
+.theme-bg-dark { background-color: var(--theme-primary-dark); }
+.theme-bg-darker { background-color: var(--theme-primary-darker); }
+.theme-text { color: var(--theme-primary); }
+.theme-border { border-color: var(--theme-primary); }
+.theme-ring:focus { --tw-ring-color: var(--theme-primary); }
+
+/* Button variants using theme */
+.btn-theme {
+  background-color: var(--theme-primary);
+  color: #fff;
+}
+.btn-theme:hover {
+  background-color: var(--theme-primary-dark);
+}
