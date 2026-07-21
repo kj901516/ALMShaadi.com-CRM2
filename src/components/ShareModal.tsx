@@ -55,7 +55,7 @@ export default function ShareModal({ profile, settings, onClose }: Props) {
       }
 
       // Use the ORIGINAL uploaded photo bytes — no card, no crop, no poster
-      const blob = dataURLToBlob(photo.dataUrl);
+      const blob = await dataURLToBlob(photo.dataUrl);
       const ext = (photo.name.split('.').pop() || 'png').toLowerCase();
       const filename = `${profile.id || profile.fullName || 'profile'}.${ext}`;
 
@@ -159,11 +159,11 @@ export default function ShareModal({ profile, settings, onClose }: Props) {
             <button onClick={copy} className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-cream-100 hover:bg-cream-200 text-maroon-800 transition">
               <Copy size={20} /><span className="text-xs font-semibold">Copy Text</span>
             </button>
-            <button onClick={dlImage} disabled={!!busy} className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-cream-100 hover:bg-cream-200 text-maroon-800 transition disabled:opacity-60">
+            <button onClick={dlImage} disabled={!!busy} className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-cream-100 hover:bg-cream-200 text-maroon-800 transition disabled:opacity-6[...]
               {busy === 'img' ? <Loader2 size={20} className="animate-spin" /> : <ImageIcon size={20} />}
               <span className="text-xs font-semibold">Card</span>
             </button>
-            <button onClick={dlPdf} disabled={!!busy} className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-cream-100 hover:bg-cream-200 text-maroon-800 transition disabled:opacity-60">
+            <button onClick={dlPdf} disabled={!!busy} className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-cream-100 hover:bg-cream-200 text-maroon-800 transition disabled:opacity-60[...]
               {busy === 'pdf' ? <Loader2 size={20} className="animate-spin" /> : <FileText size={20} />}
               <span className="text-xs font-semibold">PDF</span>
             </button>
