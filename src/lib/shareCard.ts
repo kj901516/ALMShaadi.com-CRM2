@@ -97,6 +97,8 @@ export function generateShareText(p: Profile, settings: Settings): string {
 async function loadImage(dataUrl: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
+    // Request CORS-enabled fetch so remote images can be used in canvas without tainting
+    img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
     img.onerror = reject;
     img.src = dataUrl;
