@@ -8,7 +8,6 @@ export interface ProfilePhoto {
   dataUrl: string; // base64
   name: string;
   addedAt: number;
-  path?: string; // Supabase Storage path (preserved across load → edit → save)
 }
 
 export interface Profile {

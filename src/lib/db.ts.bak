@@ -122,9 +122,10 @@ function fromRow(r: ProfileRow): Profile {
   const stored = Array.isArray(r.photos) ? r.photos : [];
   const photos: ProfilePhoto[] = stored.map((ph) => {
     const sp = ph as unknown as StoredPhoto;
-    const path = sp.path || `${r.id}/${sp.id}`;
-    const url = supabase.storage.from(PHOTOS_BUCKET).getPublicUrl(path).data.publicUrl;
-    return { id: sp.id, dataUrl: url, name: sp.name, addedAt: sp.addedAt, path };
+    const url = sp.path
+      ? supabase.storage.from(PHOTOS_BUCKET).getPublicUrl(sp.path).data.publicUrl
+      : '';
+    return { id: sp.id, dataUrl: url, name: sp.name, addedAt: sp.addedAt };
   });
 
   return migrateProfile({
