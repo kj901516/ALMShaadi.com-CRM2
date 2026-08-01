@@ -179,18 +179,19 @@ function fromRow(r: ProfileRow): Profile {
   });
 }
 
-/** Draw a watermark (profile ID) onto a data: URL image and return a new data: URL.
- *  This is used only for newly uploaded photos before they are uploaded to storage.
- *  The watermark is rendered vertically along the right edge, semi-transparent.
+/** Generate a vertical watermark data URL containing the profile ID.
+ *  Draws a narrow semi-transparent white strip on the right edge and places
+ *  vertical black semi-transparent text over it. Returns a new data URL.
  */
-async function watermarkDataUrl(dataUrl: string, watermarkText: string): Promise<string> {
+async function watermarkDataUrl(dataUrl: string, profileId: string): Promise<string> {
   return new Promise((resolve) => {
     try {
       const img = new Image();
+      img.crossOrigin = 'anonymous';
       img.onload = () => {
         try {
-          const width = img.width;
-          const height = img.height;
+          const width = img.naturalWidth;
+          const height = img.naturalHeight;
           const canvas = document.createElement('canvas');
           canvas.width = width;
           canvas.height = height;
@@ -203,54 +204,43 @@ async function watermarkDataUrl(dataUrl: string, watermarkText: string): Promise
           // Draw original image
           ctx.drawImage(img, 0, 0, width, height);
 
-          // Watermark styling (vertical on right edge)
-          const margin = Math.max(12, Math.round(Math.min(width, height) * 0.02));
-          const fontSize = Math.max(14, Math.round(width * 0.045)); // medium size
-          ctx.font = `700 ${fontSize}px sans-serif`;
+          // Watermark sizing — medium size relative to image
+          const fontSize = Math.max(14, Math.round(Math.min(width, height) * 0.06));
+          const padding = Math.round(fontSize * 0.6);
+          const stripWidth = fontSize + padding * 2; // narrow vertical strip
+          const stripX = width - stripWidth - 8; // 8px margin from right
+          const stripY = Math.max(8, Math.round((height - (height * 0.9)) / 2));
+          const stripHeight = Math.round(height * 0.9);
+
+          // Draw semi-transparent white background strip
+          ctx.fillStyle = 'rgba(255,255,255,0.6)';
+          ctx.fillRect(stripX, stripY, stripWidth + 8, stripHeight);
+
+          // Prepare vertical text
+          ctx.save();
+          // translate to center of strip
+          const cx = stripX + Math.round((stripWidth + 8) / 2);
+          const cy = Math.round(height / 2);
+          ctx.translate(cx, cy);
+          ctx.rotate(-Math.PI / 2);
+
+          ctx.font = `${fontSize}px sans-serif`;
+          ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
 
-          // Prepare vertical layout by stacking characters
-          const letters = watermarkText.split('');
-          const lineHeight = Math.round(fontSize * 1.1);
-          const totalHeight = letters.length * lineHeight;
+          // Draw the profileId text vertically (rotated)
+          ctx.fillText(profileId, 0, 0);
+          ctx.restore();
 
-          const padX = Math.round(fontSize * 0.5);
-          const padY = Math.round(fontSize * 0.35);
-          const rectW = fontSize + padX * 2;
-          const rectH = totalHeight + padY * 2;
-          const rectX = width - rectW - margin;
-          const rectY = height - rectH - margin; // place near bottom-right vertically
-
-          // Draw semi-transparent white background (30% opacity)
-          ctx.fillStyle = 'rgba(255,255,255,0.30)';
-          const radius = Math.round(padY);
-          ctx.beginPath();
-          ctx.moveTo(rectX + radius, rectY);
-          ctx.arcTo(rectX + rectW, rectY, rectX + rectW, rectY + rectH, radius);
-          ctx.arcTo(rectX + rectW, rectY + rectH, rectX, rectY + rectH, radius);
-          ctx.arcTo(rectX, rectY + rectH, rectX, rectY, radius);
-          ctx.arcTo(rectX, rectY, rectX + rectW, rectY, radius);
-          ctx.closePath();
-          ctx.fill();
-
-          // Draw each letter stacked top-to-bottom inside the rect
-          ctx.fillStyle = '#000';
-          ctx.font = `700 ${fontSize}px sans-serif`;
-          const startX = rectX + padX;
-          let y = rectY + padY + Math.round(fontSize / 2);
-          for (const ch of letters) {
-            ctx.fillText(ch, startX, y + 1);
-            y += lineHeight;
-          }
-
-          // Export preserving PNG when possible
+          // Preserve original type: use png output for png, otherwise jpeg
           const mimeMatch = /^data:(image\/(png|jpeg|jpg));base64,/.exec(dataUrl);
           const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-          const outDataUrl = mime === 'image/png' ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.9);
-          resolve(outDataUrl);
-        } catch (ex) {
+          const out = mime === 'image/png' ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.9);
+          resolve(out);
+        } catch (err) {
           // eslint-disable-next-line no-console
-          console.error('watermarkDataUrl draw error', ex);
+          console.error('watermarkDataUrl draw error', err);
           resolve(dataUrl);
         }
       };
@@ -270,7 +260,7 @@ async function persistPhotos(profileId: string, photos: ProfilePhoto[]): Promise
   for (const ph of photos) {
     const isDataUrl = ph.dataUrl.startsWith('data:');
     if (isDataUrl) {
-      // Insert watermark step for new uploads when profileId is present
+      // Only watermark new uploads (data URLs) — keep existing stored files untouched
       let toUploadDataUrl = ph.dataUrl;
       if (profileId) {
         try {
@@ -382,3 +372,177 @@ export async function getSettings(): Promise<Settings> {
 
 export async function saveSettings(s: Settings): Promise<void> {
   const { error } = await supabase
+    .from('settings')
+    .upsert({ key: 'app', value: s as unknown as Record<string, unknown> });
+  if (error) throw error;
+}
+
+/**
+ * One-time full data reset: clears ALL profiles and resets settings to defaults.
+ * Uses a meta flag so it only executes once per browser/database.
+ * Preserves the draft auto-save key (cleared separately by UI).
+ */
+export async function performOneTimeReset(): Promise<boolean> {
+  const { data: flag } = await supabase
+    .from('meta')
+    .select('value')
+    .eq('key', 'reset_done_v1')
+    .maybeSingle();
+  if ((flag as { value: unknown } | null)?.value) return false;
+
+  await Promise.all([
+    supabase.from('profiles').delete().neq('id', '__none__'),
+    supabase.from('settings').upsert({ key: 'app', value: { ...DEFAULT_SETTINGS } as unknown as Record<string, unknown> }),
+    supabase.from('meta').upsert({ key: 'seq', value: { n: 0 } as unknown as Record<string, unknown> }),
+    supabase.from('meta').upsert({ key: 'reset_done_v1', value: true as unknown as Record<string, unknown> }),
+  ]);
+  return true;
+}
+
+export async function exportSettingsBackup(): Promise<Blob> {
+  const s = await getSettings();
+  return new Blob([JSON.stringify(s, null, 2)], { type: 'application/json' });
+}
+
+export async function importSettingsBackup(file: File): Promise<Settings> {
+  const text = await file.text();
+  const parsed = JSON.parse(text) as Partial<Settings>;
+  const merged = { ...DEFAULT_SETTINGS, ...parsed };
+  await saveSettings(merged);
+  return merged;
+}
+
+// ---------- Meta (next ID) ----------
+export async function getNextProfileId(): Promise<string> {
+  const { data, error } = await supabase.rpc('get_next_profile_id');
+  if (error) throw error;
+  const seq = (data as number) || 0;
+  return 'ALM' + String(seq).padStart(4, '0');
+}
+
+/** Allocate a brand-new unique profile ID right now (used for duplicate so it gets a real MB id). */
+export async function allocateProfileId(): Promise<string> {
+  return getNextProfileId();
+}
+
+// ---------- Draft (auto-save) ----------
+const DRAFT_KEY = 'almshaadi_draft';
+
+export async function saveDraft(p: Profile): Promise<void> {
+  try {
+    await supabase
+      .from('meta')
+      .upsert({ key: DRAFT_KEY, value: p as unknown as Record<string, unknown> });
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function loadDraft(): Promise<Profile | null> {
+  const { data } = await supabase
+    .from('meta')
+    .select('value')
+    .eq('key', DRAFT_KEY)
+    .maybeSingle();
+  const row = data as { value: Profile } | null;
+  return row?.value ?? null;
+}
+
+export async function clearDraft(): Promise<void> {
+  try {
+    await supabase.from('meta').delete().eq('key', DRAFT_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+// ---------- Backup / Restore ----------
+export interface BackupFile {
+  app: 'almshaadi-crm';
+  version: number;
+  exportedAt: number;
+  profiles: Profile[];
+  settings: Settings;
+}
+
+export async function exportBackup(): Promise<BackupFile> {
+  const [profiles, settings] = await Promise.all([getAllProfiles(), getSettings()]);
+  return {
+    app: 'almshaadi-crm',
+    version: 2,
+    exportedAt: Date.now(),
+    profiles,
+    settings,
+  };
+}
+
+export async function importBackup(data: BackupFile, mode: 'replace' | 'merge'): Promise<{ added: number; updated: number }> {
+  if (!data || data.app !== 'almshaadi-crm') throw new Error('Invalid backup file');
+  if (mode === 'replace') await clearAllProfiles();
+  const existing = mode === 'merge' ? await getAllProfiles() : [];
+  const existingIds = new Set(existing.map((p) => p.id));
+  let added = 0;
+  let updated = 0;
+  const toPut: Profile[] = [];
+  for (const p of data.profiles || []) {
+    if (!p.id) continue;
+    if (existingIds.has(p.id)) updated++;
+    else added++;
+    toPut.push(migrateProfile(p));
+  }
+  await bulkPutProfiles(toPut);
+  if (data.settings) await saveSettings({ ...DEFAULT_SETTINGS, ...data.settings });
+  return { added, updated };
+}
+
+/**
+ * Repair the database: fix broken/missing profile IDs, remove orphan records,
+ * and regenerate valid unique IDs where needed. Preserves all valid profiles and settings.
+ */
+export async function repairDatabase(): Promise<{ repaired: number; removed: number; total: number }> {
+  const all = await getAllProfiles();
+  const seenIds = new Set<string>();
+  const toPut: Profile[] = [];
+  let repaired = 0;
+  let removed = 0;
+
+  let maxSeq = 0;
+  for (const p of all) {
+    const isValid = typeof p.id === 'string' && /^MB\d{4,}$/.test(p.id);
+    const isDuplicate = isValid && seenIds.has(p.id);
+    if (!isValid || isDuplicate) {
+      let candidate = '';
+      let attempts = 0;
+      do {
+        maxSeq += 1;
+        candidate = 'MB' + String(maxSeq).padStart(4, '0');
+        attempts++;
+      } while (seenIds.has(candidate) && attempts < 10000);
+      seenIds.add(candidate);
+      p.id = candidate;
+      p.updatedAt = Date.now();
+      toPut.push(p);
+      repaired++;
+      if (isDuplicate) removed++;
+    } else {
+      seenIds.add(p.id);
+      const n = parseInt(p.id.slice(2), 10);
+      if (n > maxSeq) maxSeq = n;
+      toPut.push(p);
+    }
+  }
+
+  await bulkPutProfiles(toPut);
+  await supabase.from('meta').upsert({ key: 'seq', value: { n: maxSeq } as unknown as Record<string, unknown> });
+  return { repaired, removed, total: all.length };
+}
+
+export async function getStorageEstimate(): Promise<{ usage: number; quota: number } | null> {
+  if (navigator.storage && navigator.storage.estimate) {
+    const est = await navigator.storage.estimate();
+    return { usage: est.usage || 0, quota: est.quota || 0 };
+  }
+  return null;
+}
+
+export type { ProfilePhoto };
