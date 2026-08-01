@@ -24,7 +24,7 @@ const empty = {
   marital: '',
   maslak: '',
   nationality: '',
-  prefMarital: '',
+  localMuhajir: '',
 };
 
 export default function SearchPage({ go }: Props) {
@@ -43,7 +43,18 @@ export default function SearchPage({ go }: Props) {
     return profiles.filter((p) => {
       if (f.q) {
         const t = f.q.toLowerCase();
-        if (![p.fullName, p.id, p.city, p.village, p.caste, p.profession, p.education].some((v) => v.toLowerCase().includes(t))) return false;
+        const haystack = [
+          p.fullName, p.id, p.city, p.village, p.caste, p.profession, p.education,
+          p.professionType, p.sectMaslak, p.subCaste, p.localMuhajir, p.nationality,
+          p.collegeUniversity, p.monthlyIncome, p.whatsappNumber, p.contactPersonName,
+          p.fatherMotherName, p.fatherOccupation, p.motherOccupation, p.address,
+          p.propertyDetails, p.residenceType, p.houseSize, p.maritalStatus,
+          p.disabilityStatus, p.enteredBy,
+          ...(p.prefCity || []), ...(p.prefCaste || []), ...(p.prefEducation || []),
+          ...(p.prefProfession || []), ...(p.prefMaslak || []), ...(p.prefNationality || []),
+          ...(p.prefMaritalStatus || []), ...(p.prefLocalMuhajir || []),
+        ].map((v) => String(v || '').toLowerCase());
+        if (!haystack.some((v) => v.includes(t))) return false;
       }
       if (f.gender && p.gender !== f.gender) return false;
       if (f.marital && p.maritalStatus !== f.marital) return false;
@@ -65,7 +76,7 @@ export default function SearchPage({ go }: Props) {
       if (f.profession && p.profession !== f.profession) return false;
       if (f.maslak && p.sectMaslak !== f.maslak) return false;
       if (f.nationality && p.nationality !== f.nationality) return false;
-      if (f.prefMarital && !(p.prefMaritalStatus || []).includes(f.prefMarital)) return false;
+      if (f.localMuhajir && p.localMuhajir !== f.localMuhajir) return false;
       return true;
     });
   }, [profiles, f]);
@@ -191,14 +202,11 @@ export default function SearchPage({ go }: Props) {
               ))}
             </select>
           </Labeled>
-          <Labeled label="Preferred Marital Status">
-            <select value={f.prefMarital} onChange={(e) => setF({ ...f, prefMarital: e.target.value })} className={cls}>
+          <Labeled label="Local / Migrated">
+            <select value={f.localMuhajir} onChange={(e) => setF({ ...f, localMuhajir: e.target.value })} className={cls}>
               <option value="">Any</option>
-              <option>Never Married</option>
-              <option>Divorced</option>
-              <option>Widowed</option>
-              <option>Awaiting Divorce</option>
-              <option>Annulled</option>
+              <option>Local</option>
+              <option>Migrated</option>
             </select>
           </Labeled>
         </aside>

@@ -98,7 +98,7 @@ function Shell() {
           );
         }
         return (
-          <ProfileView profile={editingProfile} settings={settings} onBack={() => go('profiles')} onEdit={() => go('edit', { id: editingProfile.id })} onShare={() => setShareId(editingProfile.id)} />
+          <ProfileView profile={editingProfile} settings={settings} allProfiles={profiles} onBack={() => go('profiles')} onEdit={() => go('edit', { id: editingProfile.id })} onShare={() => setShareId(editingProfile.id)} onOpenProfile={(id) => go('view', { id })} />
         );
       default: return null;
     }

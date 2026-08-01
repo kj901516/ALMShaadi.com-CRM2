@@ -91,10 +91,13 @@ export function matchOne(source: Profile, candidate: Profile): MatchResult {
   const marital = arrayScore(candidate.maritalStatus, source.prefMaritalStatus);
   reasons.push({ label: 'Marital status preference', ok: marital >= 80 });
 
+  const localMuhajir = arrayScore(candidate.localMuhajir || '', source.prefLocalMuhajir || []);
+  reasons.push({ label: 'Local / Migrated preference', ok: localMuhajir >= 80 });
+
   const dis = disabilityScore(candidate.disabilityStatus || '', source.prefDisabilityStatus || 'Any');
   reasons.push({ label: 'Disability preference', ok: dis >= 80 });
 
-  const score = Math.round((age + height + city + caste + edu + prof + maslak + nationality + marital + dis) / 10);
+  const score = Math.round((age + height + city + caste + edu + prof + maslak + nationality + marital + localMuhajir + dis) / 11);
   return { profile: candidate, score, reasons };
 }
 

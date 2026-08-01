@@ -67,6 +67,7 @@ export interface Profile {
   prefMaslak: string[];
   prefNationality: string[];
   prefMaritalStatus: string[];
+  prefLocalMuhajir: string[];
   prefDisabilityStatus: DisabilityStatus;
 
   // Photos
@@ -144,6 +145,7 @@ export const EMPTY_PROFILE = (): Profile => ({
   prefMaslak: [],
   prefNationality: [],
   prefMaritalStatus: [],
+  prefLocalMuhajir: [],
   prefDisabilityStatus: '',
   photos: [],
   enteredBy: '',
@@ -161,6 +163,7 @@ export function migrateProfile(p: Partial<Profile>): Profile {
   merged.prefMaslak = Array.isArray(p.prefMaslak) ? p.prefMaslak : (typeof p.prefMaslak === 'string' && p.prefMaslak ? String(p.prefMaslak).split(/[|,]/).map((s) => s.trim()).filter(Boolean) : []);
   merged.prefNationality = Array.isArray(p.prefNationality) ? p.prefNationality : (typeof p.prefNationality === 'string' && p.prefNationality ? String(p.prefNationality).split(/[|,]/).map((s) => s.trim()).filter(Boolean) : []);
   merged.prefMaritalStatus = Array.isArray(p.prefMaritalStatus) ? p.prefMaritalStatus : (typeof p.prefMaritalStatus === 'string' && p.prefMaritalStatus ? String(p.prefMaritalStatus).split(/[|,]/).map((s) => s.trim()).filter(Boolean) : []);
+  merged.prefLocalMuhajir = Array.isArray(p.prefLocalMuhajir) ? p.prefLocalMuhajir : (typeof p.prefLocalMuhajir === 'string' && p.prefLocalMuhajir ? String(p.prefLocalMuhajir).split(/[|,]/).map((s) => s.trim()).filter(Boolean) : []);
   merged.photos = p.photos || [];
   return merged;
 }

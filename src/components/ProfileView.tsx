@@ -2,19 +2,23 @@ import type { Profile, Settings } from '../lib/types';
 import { SectionTitle } from './Form';
 import { familySummary, formatDate, waLink, shareText } from '../lib/utils';
 import { generateShareText } from '../lib/shareCard';
+import { findMatches, type MatchResult } from '../lib/matching';
 import {
   User, GraduationCap, Briefcase, BookOpen, Home, Users, Heart,
-  MessageCircle, Share2, Printer, Pencil, ArrowLeft, Image as ImageIcon,
+  MessageCircle, Share2, Printer, Pencil, ArrowLeft, Image as ImageIcon, Sparkles,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import ImageViewer from './ImageViewer';
+import ProfileCard from './ProfileCard';
 
 interface Props {
   profile: Profile;
   settings: Settings;
+  allProfiles: Profile[];
   onBack: () => void;
   onEdit: () => void;
   onShare: () => void;
+  onOpenProfile: (id: string) => void;
 }
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
@@ -31,11 +35,16 @@ function arrDisplay(arr: string[]) {
   return arr.join(', ');
 }
 
-export default function ProfileView({ profile: p, settings, onBack, onEdit, onShare }: Props) {
+export default function ProfileView({ profile: p, settings, allProfiles, onBack, onEdit, onShare, onOpenProfile }: Props) {
   const [viewer, setViewer] = useState<string | null>(null);
   const mainPhoto = p.photos?.[0]?.dataUrl;
   const clientWa = waLink(p.whatsappNumber);
   const myWa = waLink(settings.myWhatsAppNumber);
+
+  const matches = useMemo<MatchResult[]>(() => {
+    if (!allProfiles || allProfiles.length === 0) return [];
+    return findMatches(p, allProfiles).slice(0, 8);
+  }, [p, allProfiles]);
 
   const shareViaWhatsApp = async () => {
     const text = generateShareText(p, settings);
@@ -198,6 +207,30 @@ export default function ProfileView({ profile: p, settings, onBack, onEdit, onSh
       </div>
 
       {viewer && <ImageViewer src={viewer} onClose={() => setViewer(null)} />}
+
+      {/* Recommended Matches */}
+      {matches.length > 0 && (
+        <section className="mt-8 print:hidden">
+          <h2 className="text-lg font-bold text-maroon-800 flex items-center gap-2 mb-3">
+            <Sparkles size={18} className="text-gold-500" /> Recommended Matches
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {matches.map((m) => (
+              <div key={m.profile.id} className="flex flex-col gap-1.5">
+                <ProfileCard
+                  profile={m.profile}
+                  onView={() => onOpenProfile(m.profile.id)}
+                  onEdit={() => onOpenProfile(m.profile.id)}
+                  onDelete={() => {}}
+                />
+                <div className="text-center text-xs font-bold text-gold-700 bg-gold-50 rounded-lg py-1">
+                  {m.score}% Match
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

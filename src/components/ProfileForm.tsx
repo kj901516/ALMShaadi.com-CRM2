@@ -27,6 +27,7 @@ const CITY_OPTIONS = ['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Faisalaba
 const MASLAK_OPTIONS = ['Barelvi', 'Deobandi', 'Ahl-e-Hadees', 'Shia', 'Sunni', 'Any'];
 const NATIONALITY_OPTIONS = ['Pakistan', 'UAE', 'Saudi Arabia', 'UK', 'Canada', 'USA', 'Any'];
 const PREF_MARITAL_OPTIONS = ['Never Married', 'Divorced', 'Widowed', 'Awaiting Divorce', 'Annulled', 'Any'];
+const PREF_LOCAL_MUHAJIR_OPTIONS = ['Local', 'Migrated', 'Any'];
 
 type FieldKey =
   | 'fullName' | 'fatherMotherName' | 'gender' | 'age' | 'height' | 'maritalStatus' | 'disabilityStatus'
@@ -35,7 +36,7 @@ type FieldKey =
   | 'residenceType' | 'houseSize' | 'city' | 'village' | 'nationality' | 'address' | 'propertyDetails'
   | 'fatherOccupation' | 'motherOccupation' | 'brothers' | 'marriedBrothers' | 'sisters' | 'marriedSisters'
   | 'prefAgeFrom' | 'prefAgeTo' | 'prefHeightFrom' | 'prefHeightTo' | 'prefCity' | 'prefCaste'
-  | 'prefMaslak' | 'prefNationality' | 'prefMaritalStatus'
+  | 'prefMaslak' | 'prefNationality' | 'prefMaritalStatus' | 'prefLocalMuhajir'
   | 'prefDisabilityStatus' | 'prefEducation' | 'prefProfession' | 'enteredBy';
 
 const FIELD_ORDER: FieldKey[] = [
@@ -45,7 +46,7 @@ const FIELD_ORDER: FieldKey[] = [
   'residenceType', 'houseSize', 'city', 'village', 'nationality', 'address', 'propertyDetails',
   'fatherOccupation', 'motherOccupation', 'brothers', 'marriedBrothers', 'sisters', 'marriedSisters',
   'prefAgeFrom', 'prefAgeTo', 'prefHeightFrom', 'prefHeightTo', 'prefCity', 'prefCaste',
-  'prefMaslak', 'prefNationality', 'prefMaritalStatus',
+  'prefMaslak', 'prefNationality', 'prefMaritalStatus', 'prefLocalMuhajir',
   'prefDisabilityStatus', 'prefEducation', 'prefProfession', 'enteredBy',
 ];
 
@@ -130,6 +131,8 @@ export default function ProfileForm({ initial, settings, onSave, onCancel }: Pro
     base.city = settings.defaultCity || '';
     base.nationality = settings.defaultNationality || 'Pakistani';
     base.enteredBy = settings.bureauName || '';
+    base.maritalStatus = 'Never Married';
+    base.disabilityStatus = 'None';
     return base;
   });
   const [saving, setSaving] = useState(false);
@@ -398,18 +401,20 @@ export default function ProfileForm({ initial, settings, onSave, onCancel }: Pro
         <section className="bg-white rounded-2xl p-5 shadow-soft">
           <SectionTitle icon={<Heart size={18} />}>Partner Requirements</SectionTitle>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <Field label="Preferred Age From">
-              <TextInput {...fieldProps('prefAgeFrom')} type="number" value={p.prefAgeFrom ?? ''} onChange={(e) => set('prefAgeFrom', numOr(e.target.value))} />
-            </Field>
-            <Field label="Preferred Age To">
-              <TextInput {...fieldProps('prefAgeTo')} type="number" value={p.prefAgeTo ?? ''} onChange={(e) => set('prefAgeTo', numOr(e.target.value))} />
-            </Field>
-            <Field label="Preferred Height From">
-              <TextInput {...fieldProps('prefHeightFrom')} value={p.prefHeightFrom} onChange={(e) => set('prefHeightFrom', e.target.value)} placeholder={`5'4"`} />
-            </Field>
-            <Field label="Preferred Height To">
-              <TextInput {...fieldProps('prefHeightTo')} value={p.prefHeightTo} onChange={(e) => set('prefHeightTo', e.target.value)} placeholder={`5'10"`} />
-            </Field>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Preferred Age From">
+                <TextInput {...fieldProps('prefAgeFrom')} type="number" value={p.prefAgeFrom ?? ''} onChange={(e) => set('prefAgeFrom', numOr(e.target.value))} />
+              </Field>
+              <Field label="Preferred Age To">
+                <TextInput {...fieldProps('prefAgeTo')} type="number" value={p.prefAgeTo ?? ''} onChange={(e) => set('prefAgeTo', numOr(e.target.value))} />
+              </Field>
+              <Field label="Preferred Height From">
+                <TextInput {...fieldProps('prefHeightFrom')} value={p.prefHeightFrom} onChange={(e) => set('prefHeightFrom', e.target.value)} placeholder={`5'4"`} />
+              </Field>
+              <Field label="Preferred Height To">
+                <TextInput {...fieldProps('prefHeightTo')} value={p.prefHeightTo} onChange={(e) => set('prefHeightTo', e.target.value)} placeholder={`5'10"`} />
+              </Field>
+            </div>
             <div className="col-span-2 md:col-span-3">
               <Field label="Preferred City (multi-select)">
                 <MultiSelect options={CITY_OPTIONS} values={p.prefCity} onChange={(v) => set('prefCity', v)} attachProps={fieldProps('prefCity')} />
@@ -433,6 +438,11 @@ export default function ProfileForm({ initial, settings, onSave, onCancel }: Pro
             <div className="col-span-2 md:col-span-3">
               <Field label="Preferred Marital Status (multi-select)">
                 <MultiSelect options={PREF_MARITAL_OPTIONS} values={p.prefMaritalStatus} onChange={(v) => set('prefMaritalStatus', v)} attachProps={fieldProps('prefMaritalStatus')} />
+              </Field>
+            </div>
+            <div className="col-span-2 md:col-span-3">
+              <Field label="Preferred Local / Migrated (multi-select)">
+                <MultiSelect options={PREF_LOCAL_MUHAJIR_OPTIONS} values={p.prefLocalMuhajir} onChange={(v) => set('prefLocalMuhajir', v)} attachProps={fieldProps('prefLocalMuhajir')} />
               </Field>
             </div>
             <Field label="Preferred Disability Status">
