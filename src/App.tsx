@@ -12,8 +12,9 @@ import ProfileView from './components/ProfileView';
 import ShareModal from './components/ShareModal';
 import ConfirmDialog from './components/ConfirmDialog';
 import { LayoutDashboard, Users, Search, Heart, ArrowLeftRight, Settings as SettingsIcon, Menu, X, Heart as HeartIcon } from 'lucide-react';
+import type { Profile } from './lib/types';
 
-export type Page = 'dashboard' | 'profiles' | 'search' | 'matches' | 'import-export' | 'settings' | 'add' | 'edit' | 'view';
+export type Page = 'dashboard' | 'profiles' | 'search' | 'matches' | 'import-export' | 'settings' | 'add' | 'edit' | 'view' | 'restore-profile';
 
 interface NavState {
   page: Page;
@@ -42,6 +43,7 @@ function Shell() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [shareId, setShareId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [restoredProfile, setRestoredProfile] = useState<Profile | null>(null);
 
   // Apply theme color via CSS variables
   useEffect(() => {
@@ -72,11 +74,15 @@ function Shell() {
       case 'profiles': return <Profiles go={go} initialDeleteId={(nav.params?.deleteId as string) || undefined} />;
       case 'search': return <SearchPage go={go} />;
       case 'matches': return <Matches go={go} />;
-      case 'import-export': return <ImportExport />;
+      case 'import-export': return <ImportExport go={go} onRestoreProfile={setRestoredProfile} />;
       case 'settings': return <SettingsPage />;
       case 'add':
         return (
           <ProfileForm settings={settings} onSave={async (p) => { await addProfile(p); toast('Profile added'); go('view', { id: p.id }); }} onCancel={() => go('dashboard')} />
+        );
+      case 'restore-profile':
+        return (
+          <ProfileForm initial={restoredProfile} settings={settings} onSave={async (p) => { await addProfile(p); toast('Profile restored & saved'); setRestoredProfile(null); go('view', { id: p.id }); }} onCancel={() => { setRestoredProfile(null); go('import-export'); }} />
         );
       case 'edit':
         return (

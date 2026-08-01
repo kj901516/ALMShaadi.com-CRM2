@@ -3,14 +3,36 @@ import { useApp } from '../lib/store';
 import { importFile, exportProfilesCSV, exportProfilesXLSX, exportProfilesJSON } from '../lib/importExport';
 import { exportBackup, importBackup, type BackupFile } from '../lib/db';
 import { downloadBlob } from '../lib/utils';
-import { Upload, Download, FileSpreadsheet, FileJson, FileText, DatabaseBackup, FileUp, AlertCircle, CheckCircle2 } from 'lucide-react';
+import {
+  exportProfileJson,
+  exportFullJsonBackup,
+  parseJsonBackupFile,
+  prepareRestoredProfile,
+  prepareRestoredBackup,
+  clearStorageForReplace,
+  type JsonProfileFile,
+  type JsonBackupFile,
+} from '../lib/jsonBackup';
+import type { Profile } from '../lib/types';
+import { Upload, Download, FileSpreadsheet, FileJson, FileText, DatabaseBackup, FileUp, AlertCircle, CheckCircle2, Package, PackageOpen } from 'lucide-react';
+import type { Page } from '../App';
 
-export default function ImportExport() {
+interface Props {
+  go: (page: Page, params?: Record<string, unknown>) => void;
+  onRestoreProfile: (p: Profile) => void;
+}
+
+export default function ImportExport({ go, onRestoreProfile }: Props) {
   const { profiles, settings, bulkAdd, reload, toast } = useApp();
   const importRef = useRef<HTMLInputElement>(null);
   const backupRef = useRef<HTMLInputElement>(null);
+  const jsonProfileExportRef = useRef<HTMLInputElement>(null);
+  const jsonFullExportRef = useRef<HTMLInputElement>(null);
+  const jsonProfileImportRef = useRef<HTMLInputElement>(null);
+  const jsonFullImportRef = useRef<HTMLInputElement>(null);
   const [result, setResult] = useState<{ count: number; errors: string[] } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [jsonBusy, setJsonBusy] = useState(false);
 
   const handleImport = async (file: File) => {
     setBusy(true);
@@ -56,6 +78,87 @@ export default function ImportExport() {
     } catch {
       toast('Invalid backup file', 'error');
     }
+  };
+
+  // ---------- JSON Backup & Restore (self-contained, Base64 embedded) ----------
+
+  const handleJsonProfileExport = async () => {
+    if (profiles.length === 0) {
+      toast('No profiles to export', 'error');
+      return;
+    }
+    setJsonBusy(true);
+    try {
+      const stamp = new Date().toISOString().slice(0, 10);
+      const file = await exportProfileJson(profiles[0]);
+      downloadBlob(new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' }), `almshaadi-profile-${profiles[0].id}-${stamp}.json`);
+      toast(`Profile ${profiles[0].id} exported (self-contained)`);
+    } catch {
+      toast('Failed to export profile JSON', 'error');
+    }
+    setJsonBusy(false);
+  };
+
+  const handleJsonFullExport = async () => {
+    if (profiles.length === 0) {
+      toast('No profiles to export', 'error');
+      return;
+    }
+    setJsonBusy(true);
+    try {
+      const stamp = new Date().toISOString().slice(0, 10);
+      const file = await exportFullJsonBackup(profiles, settings);
+      downloadBlob(new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' }), `almshaadi-full-backup-${stamp}.json`);
+      toast(`Full backup exported: ${profiles.length} profiles (self-contained)`);
+    } catch {
+      toast('Failed to export full backup', 'error');
+    }
+    setJsonBusy(false);
+  };
+
+  const handleJsonProfileImport = async (file: File) => {
+    setJsonBusy(true);
+    try {
+      const text = await file.text();
+      const parsed = await parseJsonBackupFile(text);
+      if (parsed.kind !== 'single-profile') {
+        toast('This is a full backup file, not a single profile. Use Full Restore instead.', 'error');
+        setJsonBusy(false);
+        return;
+      }
+      const profile = prepareRestoredProfile(parsed as JsonProfileFile);
+      onRestoreProfile(profile);
+      go('restore-profile');
+      toast('Profile loaded — review and click Save to restore');
+    } catch (e) {
+      toast((e as Error).message || 'Invalid profile JSON', 'error');
+    }
+    setJsonBusy(false);
+  };
+
+  const handleJsonFullImport = async (file: File) => {
+    setJsonBusy(true);
+    try {
+      const text = await file.text();
+      const parsed = await parseJsonBackupFile(text);
+      if (parsed.kind !== 'full-backup') {
+        toast('This is a single profile file, not a full backup. Use Profile Restore instead.', 'error');
+        setJsonBusy(false);
+        return;
+      }
+      const backup = parsed as JsonBackupFile;
+      const mode = confirm('OK = Replace ALL data (deletes existing profiles first)\nCancel = Merge with existing profiles') ? 'replace' : 'merge';
+      if (mode === 'replace') {
+        await clearStorageForReplace();
+      }
+      const restored = prepareRestoredBackup(backup);
+      await bulkAdd(restored);
+      await reload();
+      toast(`Full restore complete: ${restored.length} profiles ${mode === 'replace' ? 'restored' : 'merged'}`);
+    } catch (e) {
+      toast((e as Error).message || 'Invalid backup JSON', 'error');
+    }
+    setJsonBusy(false);
   };
 
   return (
@@ -144,6 +247,97 @@ export default function ImportExport() {
                 e.target.value = '';
               }}
             />
+          </div>
+        </section>
+
+        {/* JSON Backup & Restore (self-contained, Base64 embedded) */}
+        <section className="bg-white rounded-2xl p-5 shadow-soft md:col-span-2 border-l-4 border-gold-400">
+          <h2 className="font-bold text-maroon-800 flex items-center gap-2 mb-1">
+            <Package size={18} className="text-gold-600" /> JSON Backup &amp; Restore
+          </h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Self-contained backups with every photo embedded as Base64 inside the JSON file.
+            No internet connection needed to restore. Does not affect existing Share, PDF, Card, or Upload features.
+          </p>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Profile JSON */}
+            <div className="rounded-xl border border-cream-200 p-4 space-y-3">
+              <h3 className="text-sm font-bold text-maroon-700 flex items-center gap-1.5">
+                <Package size={15} /> Single Profile JSON
+              </h3>
+              <p className="text-xs text-gray-500">Export one profile with all photos embedded, or restore a profile JSON into the form for review.</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={handleJsonProfileExport}
+                  disabled={jsonBusy}
+                  className="py-2.5 rounded-lg bg-maroon-700 hover:bg-maroon-800 text-white text-xs font-semibold transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  <Download size={14} /> Export Profile
+                </button>
+                <button
+                  onClick={() => jsonProfileImportRef.current?.click()}
+                  disabled={jsonBusy}
+                  className="py-2.5 rounded-lg bg-gold-600 hover:bg-gold-700 text-white text-xs font-semibold transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  <PackageOpen size={14} /> Restore Profile
+                </button>
+                <input
+                  ref={jsonProfileImportRef}
+                  type="file"
+                  accept=".json"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleJsonProfileImport(f);
+                    e.target.value = '';
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Full CRM JSON */}
+            <div className="rounded-xl border border-cream-200 p-4 space-y-3">
+              <h3 className="text-sm font-bold text-maroon-700 flex items-center gap-1.5">
+                <DatabaseBackup size={15} /> Full CRM Backup
+              </h3>
+              <p className="text-xs text-gray-500">Export every profile and every photo as one self-contained JSON file, or restore the entire CRM.</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={handleJsonFullExport}
+                  disabled={jsonBusy}
+                  className="py-2.5 rounded-lg bg-maroon-700 hover:bg-maroon-800 text-white text-xs font-semibold transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  <Download size={14} /> Export Full Backup
+                </button>
+                <button
+                  onClick={() => jsonFullImportRef.current?.click()}
+                  disabled={jsonBusy}
+                  className="py-2.5 rounded-lg bg-gold-600 hover:bg-gold-700 text-white text-xs font-semibold transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  <PackageOpen size={14} /> Restore Full Backup
+                </button>
+                <input
+                  ref={jsonFullImportRef}
+                  type="file"
+                  accept=".json"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleJsonFullImport(f);
+                    e.target.value = '';
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 flex items-start gap-2 text-xs text-gray-400">
+            <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
+            <p>
+              <strong>Restore</strong> reuses your existing save flow — photos are uploaded to Storage and profiles are saved exactly as if you created them manually.
+              <strong> Replace</strong> mode deletes existing profiles first; <strong>Merge</strong> keeps existing profiles and updates matching IDs.
+            </p>
           </div>
         </section>
       </div>
