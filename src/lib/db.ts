@@ -477,7 +477,7 @@ export async function exportBackup(): Promise<BackupFile> {
 }
 
 export async function importBackup(data: BackupFile, mode: 'replace' | 'merge'): Promise<{ added: number; updated: number }> {
-  if (!data || data.app !== 'shaadi-crm') throw new Error('Invalid backup file');
+  if (!data || data.app !== 'almshaadi-crm') throw new Error('Invalid backup file');
   if (mode === 'replace') await clearAllProfiles();
   const existing = mode === 'merge' ? await getAllProfiles() : [];
   const existingIds = new Set(existing.map((p) => p.id));
